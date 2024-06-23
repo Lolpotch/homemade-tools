@@ -1,3 +1,5 @@
+# Just a simple keylogger
+# DISCLAIMER: I dont take any responsibility for any misuse of this tool 
 import keyboard
 
 # Define the output file
