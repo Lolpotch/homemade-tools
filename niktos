@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Check if the correct number of arguments is provided
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <file_with_urls>"
+    exit 1
+fi
+
+# Check if the provided file exists
+if [ ! -f "$1" ]; then
+    echo "File not found!"
+    exit 1
+fi
+
+# Read the file line by line and execute nikto command
+while IFS= read -r url; do
+    echo "Running nikto for URL: $url"
+    nikto -h "$url"
+done < "$1"
