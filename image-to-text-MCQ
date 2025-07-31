@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to Text with OCR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        #drop-area {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            margin: 20px auto;
+            width: 80%;
+            max-width: 500px;
+            cursor: pointer;
+        }
+        #preview {
+            max-width: 100%;
+            margin-top: 10px;
+            display: none;
+        }
+        #output-container {
+            margin-top: 20px;
+            display: none;
+        }
+        #output {
+            white-space: pre-wrap;
+            background: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: left;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Paste an Image to Extract Text</h2>
+    <div id="drop-area">Paste an image here</div>
+    <img id="preview" alt="Preview">
+
+    <div id="output-container">
+        <h3>Extracted Text:</h3>
+        <pre id="output"></pre>
+        <button onclick="copyToClipboard()">Copy to Clipboard</button>
+    </div>
+
+    <script>
+        document.addEventListener("paste", async (event) => {
+            const items = event.clipboardData.items;
+            for (let item of items) {
+                if (item.type.indexOf("image") === 0) {
+                    let blob = item.getAsFile();
+                    let reader = new FileReader();
+                    reader.onload = function (e) {
+                        document.getElementById("preview").src = e.target.result;
+                        document.getElementById("preview").style.display = "block";
+                        extractText(e.target.result);
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }
+        });
+
+        function extractText(imageData) {
+            Tesseract.recognize(
+                imageData,
+                'eng',
+                {
+                    logger: m => console.log(m) // Logs OCR progress
+                }
+            ).then(({ data: { text } }) => {
+                let formattedText = text
+                    .split("\n") // Split into lines
+                    .map(line => line.trim()) // Remove extra spaces
+                    .filter(line => line.length > 0) // Remove empty lines
+                    .map(line => `# ${line}`) // Add "# " to each line
+                    .join("\n");
+
+                document.getElementById("output").textContent = formattedText;
+                document.getElementById("output-container").style.display = "block";
+
+                // Copy to clipboard automatically
+                navigator.clipboard.writeText(formattedText).then(() => {
+                    console.log("Copied to clipboard automatically!");
+                });
+            });
+        }
+
+        function copyToClipboard() {
+            let text = document.getElementById("output").textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied to clipboard!");
+            });
+        }
+    </script>
+
+</body>
+</html>
