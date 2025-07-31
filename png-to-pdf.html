@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PNG to PDF Converter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <h2>Convert PNG to PDF</h2>
+  <input type="file" id="imageInput" accept="image/png"><br><br>
+  <button onclick="convertToPDF()">Convert to PDF</button>
+
+  <script>
+    async function convertToPDF() {
+      const fileInput = document.getElementById('imageInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert("Please select a PNG file first.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const imgData = e.target.result;
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF();
+
+        const img = new Image();
+        img.onload = function () {
+          const imgWidth = pdf.internal.pageSize.getWidth();
+          const imgHeight = (img.height * imgWidth) / img.width;
+          pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+          pdf.save("converted.pdf");
+        };
+        img.src = imgData;
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
