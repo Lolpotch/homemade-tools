@@ -82,6 +82,10 @@ function startTone() {
     gainNode = audioCtx.createGain();
     osc.type = 'sine';
     osc.frequency.value = parseInt(toneEl.value, 10);
+    // Update frequency live when slider moves
+    toneEl.addEventListener('input', () => {
+      if (osc) osc.frequency.setValueAtTime(parseInt(toneEl.value, 10), audioCtx.currentTime);
+    });
     gainNode.gain.value = 0.2;
     osc.connect(gainNode).connect(audioCtx.destination);
     osc.start();
@@ -156,13 +160,23 @@ window.addEventListener('keyup', e => {
   updateVisuals();
 });
 
-// Audio unlock (required by browsers)
-document.getElementById('startAudio').onclick = async () => {
+// Audio unlock (auto on first interaction)
+async function ensureAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  await audioCtx.resume();
-};
+  if (audioCtx.state !== 'running') {
+    try { await audioCtx.resume(); } catch (e) {}
+  }
+}
+
+// Try to enable on page load (may be blocked), then on first user gesture
+window.addEventListener('load', ensureAudio);
+window.addEventListener('pointerdown', ensureAudio, { once: true });
+window.addEventListener('keydown', ensureAudio, { once: true });
+
+// Keep button as fallback (optional)
+document.getElementById('startAudio').onclick = ensureAudio;
 </script>
 </body>
 </html>
