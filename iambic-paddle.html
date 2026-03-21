@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Iambic Paddle (K/L)</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#0b1220; color:#e5e7eb; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+  .card { background:#111827; border-radius:16px; padding:24px 28px; box-shadow:0 10px 30px rgba(0,0,0,.4); text-align:center; max-width:520px; }
+  h1 { margin:0 0 8px; font-size:22px; }
+  p { margin:6px 0; opacity:.85; }
+  .keys { display:flex; gap:14px; justify-content:center; margin:16px 0 10px; }
+  .key { padding:14px 18px; border-radius:12px; background:#1f2937; border:2px solid #374151; font-weight:bold; font-size:18px; min-width:72px; }
+  .key.active { background:#0ea5e9; border-color:#38bdf8; color:#001018; }
+  .row { display:flex; gap:10px; justify-content:center; align-items:center; margin-top:10px; flex-wrap:wrap; }
+  input[type=range] { width:180px; }
+  .label { font-size:13px; opacity:.8; }
+  .status { margin-top:10px; font-size:13px; opacity:.8; }
+  button { background:#10b981; border:none; color:#022c22; padding:8px 12px; border-radius:10px; font-weight:600; cursor:pointer; }
+  button:active { transform:translateY(1px); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Iambic Paddle — Keyboard</h1>
+    <p>Use <b>K</b> = DIT (·) and <b>L</b> = DAH (–). Hold both for iambic.</p>
+
+    <div class="keys">
+      <div id="ditKey" class="key">K ·</div>
+      <div id="dahKey" class="key">L –</div>
+    </div>
+
+    <div class="row">
+      <span class="label">Speed (WPM)</span>
+      <input id="wpm" type="range" min="5" max="40" value="19" />
+      <span id="wpmVal">19</span>
+    </div>
+
+    <div class="row">
+      <span class="label">Tone (Hz)</span>
+      <input id="tone" type="range" min="300" max="1000" value="1000" />
+      <span id="toneVal">1000</span>
+    </div>
+
+    <div class="row">
+      <button id="startAudio">Enable Audio</button>
+    </div>
+
+    <div class="status">Focus this page, then press K / L.</div>
+  </div>
+
+<script>
+let audioCtx = null;
+let gainNode = null;
+let osc = null;
+
+const ditKeyEl = document.getElementById('ditKey');
+const dahKeyEl = document.getElementById('dahKey');
+
+const wpmEl = document.getElementById('wpm');
+const wpmVal = document.getElementById('wpmVal');
+const toneEl = document.getElementById('tone');
+const toneVal = document.getElementById('toneVal');
+
+wpmEl.oninput = () => wpmVal.textContent = wpmEl.value;
+toneEl.oninput = () => toneVal.textContent = toneEl.value;
+
+// Morse timing
+function ditLengthMs() {
+  return 1200 / parseInt(wpmEl.value, 10);
+}
+
+let ditPressed = false;
+let dahPressed = false;
+let keyerRunning = false;
+let lastSent = null; // 'dit' or 'dah'
+
+function startTone() {
+  if (!audioCtx) return;
+  if (!osc) {
+    osc = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = parseInt(toneEl.value, 10);
+    gainNode.gain.value = 0.2;
+    osc.connect(gainNode).connect(audioCtx.destination);
+    osc.start();
+  }
+  gainNode.gain.setTargetAtTime(0.2, audioCtx.currentTime, 0.001);
+}
+
+function stopTone() {
+  if (gainNode) {
+    gainNode.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.002);
+  }
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function runKeyer() {
+  if (keyerRunning) return;
+  keyerRunning = true;
+
+  while (ditPressed || dahPressed) {
+    let send;
+
+    // Iambic alternation when both held
+    if (ditPressed && dahPressed) {
+      send = (lastSent === 'dit') ? 'dah' : 'dit';
+    } else if (ditPressed) {
+      send = 'dit';
+    } else if (dahPressed) {
+      send = 'dah';
+    }
+
+    if (!send) break;
+
+    lastSent = send;
+
+    const unit = ditLengthMs();
+    const duration = (send === 'dit') ? unit : unit * 3;
+
+    startTone();
+    await sleep(duration);
+    stopTone();
+
+    // element space
+    await sleep(unit);
+  }
+
+  keyerRunning = false;
+}
+
+function updateVisuals() {
+  ditKeyEl.classList.toggle('active', ditPressed);
+  dahKeyEl.classList.toggle('active', dahPressed);
+}
+
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.key.toLowerCase() === 'k') {
+    ditPressed = true;
+  }
+  if (e.key.toLowerCase() === 'l') {
+    dahPressed = true;
+  }
+  updateVisuals();
+  runKeyer();
+});
+
+window.addEventListener('keyup', e => {
+  if (e.key.toLowerCase() === 'k') ditPressed = false;
+  if (e.key.toLowerCase() === 'l') dahPressed = false;
+  updateVisuals();
+});
+
+// Audio unlock (required by browsers)
+document.getElementById('startAudio').onclick = async () => {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  await audioCtx.resume();
+};
+</script>
+</body>
+</html>
