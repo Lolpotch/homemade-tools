@@ -26,7 +26,7 @@
             justify-content: center;
             align-items: center;
         }
-        #speedInput {
+        #speedInput, #skipInput {
             padding: 8px 12px;
             width: 80px;
             border: 1px solid #ccc;
@@ -48,19 +48,30 @@
         #fileInput {
             display: none;
         }
+        .hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: -10px;
+        }
     </style>
 </head>
 <body>
     <h1>Custom Video Speed Player</h1>
-    
+
     <button id="chooseBtn">📁 Choose Video File</button>
     <input type="file" id="fileInput" accept="video/*">
-    
+
     <div class="controls">
         <label for="speedInput">Speed:</label>
         <input type="number" id="speedInput" min="0.1" max="16" step="0.1" value="1.0">
         <button id="applyBtn">▶️ Apply Speed</button>
     </div>
+
+    <div class="controls">
+        <label for="skipInput">Skip (sec):</label>
+        <input type="number" id="skipInput" min="1" max="600" step="1" value="5">
+    </div>
+    <p class="hint">Use ← / → to skip by the amount above (works while the video area has focus)</p>
 
     <video id="videoPlayer" controls>Your browser doesn't support video</video>
 
@@ -70,6 +81,7 @@
         const videoPlayer = document.getElementById('videoPlayer');
         const speedInput = document.getElementById('speedInput');
         const applyBtn = document.getElementById('applyBtn');
+        const skipInput = document.getElementById('skipInput');
 
         // Open file selector when "Choose Video" is clicked
         chooseBtn.addEventListener('click', () => {
@@ -101,6 +113,86 @@
         speedInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 applyBtn.click();
+            }
+        });
+
+        // Prevent the video from grabbing keyboard focus on click.
+        // If it keeps focus, the browser's NATIVE scrub bar handles
+        // arrow keys internally (that's the duration-based skip you saw)
+        // and our keydown listener below never even sees the event.
+        videoPlayer.tabIndex = -1;
+        videoPlayer.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // blocks focus, but click/play still works
+        });
+
+        // Fullscreen also auto-focuses the video (not via a click, so the
+        // mousedown trick above doesn't catch it). Blur it right after so
+        // arrow keys keep going to our document listener instead of the
+        // native fullscreen scrub bar.
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                videoPlayer.blur();
+            }
+        });
+        // Safari uses a prefixed event name
+        document.addEventListener('webkitfullscreenchange', () => {
+            if (document.webkitFullscreenElement) {
+                videoPlayer.blur();
+            }
+        });
+
+        // Custom arrow-key skipping (fixed seconds, not duration-based)
+        function getSkipAmount() {
+            const val = parseFloat(skipInput.value);
+            return (!isNaN(val) && val > 0) ? val : 5;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            // Don't hijack arrow keys while user is typing in a number field
+            const tag = document.activeElement.tagName;
+            if (tag === 'INPUT') return;
+
+            if (!videoPlayer.src) return;
+
+            if (e.key === 'ArrowRight') {
+                e.preventDefault(); // block native duration-based seek
+                videoPlayer.currentTime = Math.min(
+                    videoPlayer.currentTime + getSkipAmount(),
+                    videoPlayer.duration || Infinity
+                );
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                videoPlayer.currentTime = Math.max(
+                    videoPlayer.currentTime - getSkipAmount(),
+                    0
+                );
+            } else if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault(); // block page scroll
+                if (videoPlayer.paused) {
+                    videoPlayer.play();
+                } else {
+                    videoPlayer.pause();
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                videoPlayer.volume = Math.min(videoPlayer.volume + 0.1, 1);
+                videoPlayer.muted = false;
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                videoPlayer.volume = Math.max(videoPlayer.volume - 0.1, 0);
+                videoPlayer.muted = false;
+            } else if (e.key === 'm' || e.key === 'M') {
+                e.preventDefault();
+                videoPlayer.muted = !videoPlayer.muted;
+            } else if (e.key === 'f' || e.key === 'F') {
+                e.preventDefault();
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else if (videoPlayer.requestFullscreen) {
+                    videoPlayer.requestFullscreen();
+                } else if (videoPlayer.webkitRequestFullscreen) {
+                    videoPlayer.webkitRequestFullscreen(); // Safari fallback
+                }
             }
         });
     </script>
