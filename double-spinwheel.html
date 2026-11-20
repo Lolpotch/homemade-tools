@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Double Spin Wheel</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #f4f4f7; color: #222; }
+  h1 { text-align: center; margin: 16px 0 8px; }
+  .wheels { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; padding: 16px; }
+  .wheel { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .wrap { position: relative; width: min(360px, 90vw); }
+  canvas { width: 100%; height: auto; cursor: pointer; display: block; }
+  .pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
+    border-top: 26px solid #d22; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
+  textarea { width: min(360px, 90vw); height: 120px; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid #ccc; }
+  .controls { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px 16px 32px; }
+  button { font: inherit; font-size: 1.2rem; font-weight: 700; padding: 12px 32px; border: 0; border-radius: 999px;
+    background: #2563eb; color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  label { display: flex; gap: 8px; align-items: center; }
+  label input { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid #ccc; width: 140px; }
+  dialog { border: 0; border-radius: 24px; padding: 48px 40px 32px; max-width: min(900px, 92vw);
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4); }
+  dialog[open] { animation: pop .35s cubic-bezier(.2,1.6,.4,1); }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  @keyframes pop { from { transform: scale(.5); opacity: 0; } }
+  #result { font-size: clamp(2rem, 8vw, 4.5rem); font-weight: 800; line-height: 1.2; margin-bottom: 28px; overflow-wrap: anywhere; }
+  #result .c { color: #2563eb; }
+</style>
+</head>
+<body>
+<h1>Double Spin Wheel</h1>
+
+<div class="wheels">
+  <div class="wheel">
+    <div class="wrap"><canvas width="720" height="720"></canvas><div class="pointer"></div></div>
+    <textarea>Makan
+Tidur
+Belajar
+Main game
+Olahraga</textarea>
+  </div>
+  <div class="wheel">
+    <div class="wrap"><canvas width="720" height="720"></canvas><div class="pointer"></div></div>
+    <textarea>Ngantuk
+Hujan
+Lupa
+Males
+Uang habis</textarea>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="spinBoth">SPIN BOTH</button>
+  <label>Penghubung: <input id="connector" value="tapi"></label>
+</div>
+
+<dialog id="popup">
+  <div id="result"></div>
+  <form method="dialog"><button autofocus>OK</button></form>
+</dialog>
+
+<script>
+const COLORS = ['#e53935','#fb8c00','#fdd835','#43a047','#1e88e5','#5e35b1','#d81b60','#00acc1'];
+const TAU = Math.PI * 2;
+const POINTER = -Math.PI / 2; // pointer at top
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+const resultEl = document.getElementById('result');
+const connectorEl = document.getElementById('connector');
+const spinBothBtn = document.getElementById('spinBoth');
+
+const wheels = [...document.querySelectorAll('.wheel')].map((el, i) => {
+  const w = { canvas: el.querySelector('canvas'), ta: el.querySelector('textarea'), rot: 0, spinning: false, result: null };
+  const saved = store.get('entries' + i);
+  if (saved !== null) w.ta.value = saved;
+  w.ta.addEventListener('input', () => { store.set('entries' + i, w.ta.value); draw(w); });
+  w.canvas.addEventListener('click', () => spin([w]));
+  return w;
+});
+const savedConn = store.get('connector');
+if (savedConn !== null) connectorEl.value = savedConn;
+connectorEl.addEventListener('input', () => { store.set('connector', connectorEl.value); renderResult(); });
+
+function entries(w) {
+  const e = w.ta.value.split('\n').map(s => s.trim()).filter(Boolean);
+  return e.length ? e : ['?'];
+}
+
+function draw(w) {
+  const ctx = w.canvas.getContext('2d'), n = entries(w).length, size = w.canvas.width, r = size / 2, seg = TAU / n;
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.translate(r, r);
+  ctx.rotate(w.rot);
+  entries(w).forEach((label, i) => {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r - 4, i * seg, (i + 1) * seg);
+    // avoid same color touching across the wrap when n % colors === 1
+    ctx.fillStyle = COLORS[(i === n - 1 && n % COLORS.length === 1 && n > 1) ? 1 : i % COLORS.length];
+    ctx.fill();
+    ctx.save();
+    ctx.rotate((i + 0.5) * seg);
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(0,0,0,.35)';
+    ctx.lineWidth = 4;
+    ctx.font = `bold ${Math.max(18, Math.min(44, 300 / n))}px system-ui, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    const text = label.length > 18 ? label.slice(0, 17) + '…' : label;
+    ctx.strokeText(text, r - 28, 0);
+    ctx.fillText(text, r - 28, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(r, r, r * 0.1, 0, TAU);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+}
+
+function indexAtPointer(w) {
+  const n = entries(w).length;
+  const local = ((POINTER - w.rot) % TAU + TAU) % TAU;
+  return Math.floor(local / (TAU / n)) % n;
+}
+
+function random01() {
+  return crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32;
+}
+
+function spin(list) {
+  list = list.filter(w => !w.spinning);
+  if (!list.length) return;
+  spinBothBtn.disabled = true;
+  const done = list.map((w, k) => new Promise(resolve => {
+    w.spinning = true;
+    w.ta.disabled = true;
+    const start = w.rot, delta = TAU * (5 + random01() * 1) + random01() * TAU;
+    const dur = 4000 + k * 1200 + random01() * 500; // staggered stop for suspense
+    const t0 = performance.now();
+    (function frame(t) {
+      const p = Math.min(1, (t - t0) / dur);
+      w.rot = start + delta * (1 - (1 - p) ** 4); // ease-out quart
+      draw(w);
+      if (p < 1) return requestAnimationFrame(frame);
+      w.rot %= TAU;
+      w.result = entries(w)[indexAtPointer(w)];
+      w.spinning = false;
+      w.ta.disabled = false;
+      resolve();
+    })(t0);
+  }));
+  Promise.all(done).then(() => {
+    if (wheels.some(w => w.spinning)) return;
+    spinBothBtn.disabled = false;
+    renderResult();
+    popup.showModal();
+  });
+}
+
+function renderResult() {
+  if (wheels.some(w => w.spinning)) return;
+  if (wheels.every(w => w.result === null)) { resultEl.textContent = ''; return; }
+  resultEl.replaceChildren(
+    wheels[0].result ?? '?', ' ',
+    Object.assign(document.createElement('span'), { className: 'c', textContent: connectorEl.value }),
+    ' ', wheels[1].result ?? '?'
+  );
+}
+
+const popup = document.getElementById('popup');
+popup.addEventListener('click', e => { if (e.target === popup) popup.close(); }); // click backdrop to close
+spinBothBtn.addEventListener('click', () => spin(wheels));
+wheels.forEach(draw);
+</script>
+</body>
+</html>
