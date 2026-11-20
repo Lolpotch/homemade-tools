@@ -8,14 +8,15 @@
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, sans-serif; background: #f4f4f7; color: #222; }
   h1 { text-align: center; margin: 16px 0 8px; }
-  .wheels { display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; padding: 16px; }
+  .wheels { display: flex; justify-content: center; gap: min(24px, 3vw); padding: 16px 8px; }
   .wheel { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-  .wrap { position: relative; width: min(360px, 90vw); }
+  .wrap { position: relative; width: min(360px, 45vw); }
   canvas { width: 100%; height: auto; cursor: pointer; display: block; }
   .pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
     width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
     border-top: 26px solid #d22; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }
-  textarea { width: min(360px, 90vw); height: 120px; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid #ccc; }
+  .pointer { border-width: min(26px, 5vw) min(14px, 3vw) 0; }
+  textarea { width: min(360px, 45vw); height: 120px; font: inherit; padding: 8px; border-radius: 8px; border: 1px solid #ccc; }
   .controls { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px 16px 32px; }
   button { font: inherit; font-size: 1.2rem; font-weight: 700; padding: 12px 32px; border: 0; border-radius: 999px;
     background: #2563eb; color: #fff; cursor: pointer; }
